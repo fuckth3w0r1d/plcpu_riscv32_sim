@@ -7,8 +7,8 @@ module plcomp_tb();
   plcomp plcomp(clk, rstn);
   
   initial begin
-    // input instructions for simulation
-    $readmemh("rv32_pl_sim.dat", plcomp.U_imem.RAM); //( 21 ins-25cycles )
+    // input instructions for simulation  //riscv_sidascsorting_sim.dat Test_30_Instr.dat
+    $readmemh("Test_30_Instr.dat", plcomp.U_imem.RAM); //( 21 ins-25cycles )
     clk = 0;
     rstn = 1;
     #50 ;
