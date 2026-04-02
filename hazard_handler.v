@@ -28,7 +28,7 @@ module Forwarding(
     input EX_MEM_RegWrite,    // EX/MEM阶段的寄存器写使能
     input MEM_WB_RegWrite,    // MEM/WB阶段的寄存器写使能
     output reg [1:0] ForwardA, // ALU输入A的前递选择
-    output reg [1:0] ForwardB  // ALU输入B的前递选择
+    output reg [1:0] ForwardB,  // ALU输入B的前递选择
     output reg ForwardMEM      // 写内存时源寄存器数据的转发（sw）
 );
 
