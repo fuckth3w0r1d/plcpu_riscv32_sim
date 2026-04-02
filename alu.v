@@ -5,22 +5,35 @@ module alu(A, B, ALUOp, C, Zero);
    input         [4:0]  ALUOp;
    output signed [31:0] C;
    output Zero;  //condition flag: set if condition is true for B-type instruction
-   
+   output reg flush; //branch flag: set if branch is taken
+
    reg [31:0] C;
    integer    i;
-       
+   
+   initial flush = 1'b0;
+
    always @( * ) begin
       case ( ALUOp )
-        `ALUOp_lui:C=B;
-        `ALUOp_add:C=A+B;
-        `ALUOp_sub:C=A-B;  //and beq
-        `ALUOp_xor:C=A^B;
-        `ALUOp_or:C=A|B;
-        `ALUOp_and:C=A&B;
-        `ALUOp_sll:C=A<<B;
-        `ALUOp_srl:C=A>>B;
-        `ALUOp_sra:C=A>>>B;
-        default: C=A;
+         `ALUOp_lui: begin C = B; flush = 1'b0; end
+         `ALUOp_add: begin C = A + B; flush = 1'b0; end
+         `ALUOp_sub: begin C = A - B; flush = 1'b0; end  //and beq
+         `ALUOp_xor: begin C = A ^ B; flush = 1'b0; end
+         `ALUOp_or: begin C = A | B; flush = 1'b0; end
+         `ALUOp_and: begin C = A & B; flush = 1'b0; end
+         `ALUOp_sll: begin C = A << B; flush = 1'b0; end
+         `ALUOp_srl: begin C = A >> B; flush = 1'b0; end
+         `ALUOp_sra: begin C = A >>> B; flush = 1'b0; end
+         `ALUOp_slt: begin C = ($signed(A) < $signed(B)) ? 32'b1 : 32'b0; flush = 1'b0; end
+         `ALUOp_sltu: begin C = ($unsigned(A) < $unsigned(B)) ? 32'b1 : 32'b0; flush = 1'b0; end
+         `ALUOp_beq: begin C = (A == B) ? 32'b1 : 32'b0; flush = (A == B); end
+         `ALUOp_bne: begin C = (A != B) ? 32'b1 : 32'b0; flush = (A != B); end
+         `ALUOp_blt: begin C = (A < B) ? 32'b1 : 32'b0; flush = (A < B); end
+         `ALUOp_bge: begin C = (A >= B) ? 32'b1 : 32'b0; flush = (A >= B); end
+         `ALUOp_bltu: begin C = ($unsigned(A) < $unsigned(B)) ? 32'b1 : 32'b0; flush = ($unsigned(A) < $unsigned(B)); end
+         `ALUOp_bgeu: begin C = ($unsigned(A) >= $unsigned(B)) ? 32'b1 : 32'b0; flush = ($unsigned(A) > $unsigned(B)); end
+         `ALUOp_jal: begin C = A; flush = 1'b1; end
+         `ALUOp_jalr: begin C = A + B; flush = 1'b1; end
+         default: begin C = A; flush = 1'b0; end
       endcase
    end 
    

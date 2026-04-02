@@ -1,6 +1,7 @@
 module PC( clk, rst, NPC, PC );
   input              clk;
   input              rst;
+  input              stall;  // 加入 stall 控制信号
   input       [31:0] NPC;
   output reg  [31:0] PC;
 
@@ -8,6 +9,8 @@ module PC( clk, rst, NPC, PC );
     if (rst) begin
        PC <= 32'h0000_0000;
        //$write("\n reset pc = %h: ", PC);
+       end
+    else if (stall) begin  
        end
     else 
        begin 

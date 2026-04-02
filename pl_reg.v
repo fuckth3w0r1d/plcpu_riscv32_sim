@@ -6,10 +6,12 @@ module pl_reg #(parameter WIDTH = 32)(
     
     always@(posedge clk, posedge rst)
       begin
-          if(rst)
-              out <= 0;
-          else 
-              out <= in;
+            if(rst)
+                out <= 0;
+            else if(flush)      // 冲刷流水线
+                out <= 0;
+            else if(!stall)     // 非阻塞则继续
+                out <= in;
       end
     
 endmodule
