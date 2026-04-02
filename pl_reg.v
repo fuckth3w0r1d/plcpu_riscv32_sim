@@ -1,5 +1,5 @@
 module pl_reg #(parameter WIDTH = 32)(
-    input clk, rst, 
+    input clk, rst, flush, stall,
     input [WIDTH-1:0] in,
     output reg [WIDTH-1:0] out
     );
