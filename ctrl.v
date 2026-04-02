@@ -1,7 +1,7 @@
  `include "ctrl_encode_def.v"
 
 module ctrl(Op, Funct7, Funct3, Zero, 
-            RegWrite, MemWrite,
+            RegWrite, MemWrite, MemRead,
             EXTOp, ALUOp, NPCOp, 
             ALUSrc, WDSel
             );

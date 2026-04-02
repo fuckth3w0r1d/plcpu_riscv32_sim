@@ -1,4 +1,4 @@
-module PC( clk, rst, NPC, PC );
+module PC( clk, rst,  stall, NPC, PC);
   input              clk;
   input              rst;
   input              stall;  // 加入 stall 控制信号
