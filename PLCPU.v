@@ -47,6 +47,12 @@ module PLCPU(
 	wire [19:0] uimm,jimm;
 	wire [31:0] immout;
 	
+    wire IF_ID_Use_rs2;
+    // rs2 只有在EX阶段真正参与运算/比较时才置1
+    assign IF_ID_Use_rs2 =
+        (Op == 7'b0110011) ||   // R-type
+        (Op == 7'b1100011);     // branch
+
 	//EX wires
 	wire [4:0] EX_rd;
     wire [4:0] EX_rs1;
@@ -321,6 +327,7 @@ Hazard_Detect U_Hazard_Detect(
     .ID_EX_rd(EX_rd),
     .ID_EX_RegWrite(EX_RegWrite),
     .ID_EX_MemRead(EX_MemRead),
+    .IF_ID_Use_rs2(IF_ID_Use_rs2),
     .stall(stall)
 );
 

@@ -2,18 +2,21 @@ module Hazard_Detect(
     input [4:0] IF_ID_rs1, IF_ID_rs2,  // IF/ID阶段的源寄存器
     input [4:0] ID_EX_rd,              // ID/EX阶段的目的寄存器
     input ID_EX_RegWrite,
-    input ID_EX_MemRead,               // ID/EX阶段的Load标志
+    input ID_EX_MemRead,               // ID/EX阶段是否为load
+    input IF_ID_Use_rs2,               // IF/ID指令是否在EX阶段使用rs2
     output reg stall
 );
 
 always @(*) begin
     stall = 1'b0;
-    // Load-Use 冒险在ID阶段尽早检测
+    // 只对真正的 load-use 冒险停顿
     if (ID_EX_MemRead && ID_EX_RegWrite && (ID_EX_rd != 0) &&
-        ((ID_EX_rd == IF_ID_rs1) || (ID_EX_rd == IF_ID_rs2))) begin
+        ((ID_EX_rd == IF_ID_rs1) ||
+         (IF_ID_Use_rs2 && (ID_EX_rd == IF_ID_rs2)))) begin
         stall = 1'b1;
     end
 end
+
 endmodule
 
 module Forwarding(
