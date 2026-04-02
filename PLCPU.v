@@ -68,7 +68,6 @@ module PLCPU(
     wire       EX_ALUSrc;
     wire [1:0] EX_WDSel;
     wire [31:0] EX_pc;
-    wire [2:0] EX_DMType;
 	
 	//MEM wires
 	wire [4:0] MEM_rd;
@@ -79,7 +78,6 @@ module PLCPU(
 	wire        MEM_MemWrite;
 	wire        MEM_MemRead;
 	wire [1:0] MEM_WDSel;
-    wire [2:0] MEM_DMType;
     assign mem_w = MEM_MemWrite;
     assign mem_r = MEM_MemRead;
     
@@ -126,7 +124,7 @@ module PLCPU(
 	);
  // instantiation of pc unit
 	PC U_PC(.clk(~clk), .rst(reset), .stall(stall), .NPC(NPC), .PC(PC_out) );
-	NPC U_NPC(.PC(EX_pc), .NPCOp(EX_NPCOp),
+	NPC U_NPC(.PC(PC_out), .NPCOp(EX_NPCOp),
 	          .IMM(EX_immout), .aluout(aluout), .stall(stall), .NPC(NPC));
 	EXT U_EXT(
 		.iimm(iimm), .simm(simm), .bimm(bimm), .uimm(uimm), .jimm(jimm),
@@ -152,9 +150,9 @@ end
 always @(*)
 begin
 	case(WB_WDSel)
-		`WDSel_FromALU: WD<=WB_aluout;
-		`WDSel_FromMEM: WD<=WB_MemData;
-		`WDSel_FromPC:  WD<=WB_pc+4;  //WB_pc��ǰ�漸����δ��4����Jָ��ԭʼ��ַ
+		`WDSel_FromALU: WD = WB_aluout;
+		`WDSel_FromMEM: WD = WB_MemData;
+		`WDSel_FromPC:  WD = WB_pc+4;  //WB_pc��ǰ�漸����δ��4����Jָ��ԭʼ��ַ
 	endcase
 end
 
@@ -165,26 +163,26 @@ end
     always @(*) 
 begin
     case(ForwardA)
-        2'b00: alu_in1 <= EX_RD1; // 正常情况，无需前递
-        2'b01: alu_in1 <= WD;     // MEM/WB -> EX
-        2'b10: alu_in1 <= MEM_aluout; // EX/MEM -> EX 通常为ALU结果
-        default: alu_in1 <= 32'b0;    // 默认值（可选）
+        2'b00: alu_in1 = EX_RD1; // 正常情况，无需前递
+        2'b01: alu_in1 = WD;     // MEM/WB -> EX
+        2'b10: alu_in1 = MEM_aluout; // EX/MEM -> EX 通常为ALU结果
+        default: alu_in1 = 32'b0;    // 默认值（可选）
     endcase
 
     case(ForwardB)
-        2'b00: alu_in2 <= EX_RD2; // 正常情况，无需前递
-        2'b01: alu_in2 <= WD;      // MEM/WB -> EX
-        2'b10: alu_in2 <= MEM_aluout; // EX/MEM -> EX 通常为ALU结果
-        default: alu_in2 <= 32'b0;    // 默认值（可选）
+        2'b00: alu_in2 = EX_RD2; // 正常情况，无需前递
+        2'b01: alu_in2 = WD;      // MEM/WB -> EX
+        2'b10: alu_in2 = MEM_aluout; // EX/MEM -> EX 通常为ALU结果
+        default: alu_in2 = 32'b0;    // 默认值（可选）
     endcase
     // $write("alu_in1:%h, alu_in2:%h; ForwardAB=%b %b ", alu_in1, alu_in2, ForwardA, ForwardB);
 end
     
     always @(*) begin
         if (ForwardMEM)
-            memdata_wr <= WD;       // MEM/WB -> MEM
+            memdata_wr = WD;       // MEM/WB -> MEM
         else
-            memdata_wr <= MEM_RD2;  // 正常来自EX/MEM中的store data
+            memdata_wr = MEM_RD2;  // 正常来自EX/MEM中的store data
     end
         
     assign A = alu_in1;
