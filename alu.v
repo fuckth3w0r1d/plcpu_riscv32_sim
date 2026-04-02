@@ -1,6 +1,6 @@
 `include "ctrl_encode_def.v"
 
-module alu(A, B, ALUOp, C, Zero);
+module alu(A, B, ALUOp, C, Zero, flush);
    input  signed [31:0] A, B;
    input         [4:0]  ALUOp;
    output signed [31:0] C;
@@ -30,7 +30,7 @@ module alu(A, B, ALUOp, C, Zero);
          `ALUOp_blt: begin C = (A < B) ? 32'b1 : 32'b0; flush = (A < B); end
          `ALUOp_bge: begin C = (A >= B) ? 32'b1 : 32'b0; flush = (A >= B); end
          `ALUOp_bltu: begin C = ($unsigned(A) < $unsigned(B)) ? 32'b1 : 32'b0; flush = ($unsigned(A) < $unsigned(B)); end
-         `ALUOp_bgeu: begin C = ($unsigned(A) >= $unsigned(B)) ? 32'b1 : 32'b0; flush = ($unsigned(A) > $unsigned(B)); end
+         `ALUOp_bgeu: begin C = ($unsigned(A) >= $unsigned(B)) ? 32'b1 : 32'b0; flush = ($unsigned(A) >= $unsigned(B)); end
          `ALUOp_jal: begin C = A; flush = 1'b1; end
          `ALUOp_jalr: begin C = A + B; flush = 1'b1; end
          default: begin C = A; flush = 1'b0; end
