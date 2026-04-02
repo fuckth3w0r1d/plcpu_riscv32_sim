@@ -10,6 +10,11 @@ module PLCPU(
     output    mem_w,          // output: memory write signal
     output    mem_r           // output: memory read signal
 );
+    wire stall;
+    wire flush;
+
+    wire [1:0] ForwardA, ForwardB;
+    wire ForwardMEM;
     wire        RegWrite;    // control signal to register write
     wire [5:0]  EXTOp;      // control signal to signed extension
     wire [4:0]  ALUOp;       // ALU opertion
@@ -57,6 +62,7 @@ module PLCPU(
     wire       EX_ALUSrc;
     wire [1:0] EX_WDSel;
     wire [31:0] EX_pc;
+    wire [2:0] EX_DMType;
 	
 	//MEM wires
 	wire [4:0] MEM_rd;
@@ -67,7 +73,7 @@ module PLCPU(
 	wire        MEM_MemWrite;
 	wire        MEM_MemRead;
 	wire [1:0] MEM_WDSel;
-
+    wire [2:0] MEM_DMType;
     assign mem_w = MEM_MemWrite;
     assign mem_r = MEM_MemRead;
     
@@ -113,12 +119,12 @@ module PLCPU(
 		.ALUSrc(ALUSrc), .WDSel(WDSel)
 	);
  // instantiation of pc unit
-	PC U_PC(.clk(~clk), .rst(reset), .NPC(NPC), .PC(PC_out) );
-	NPC U_NPC(.PC(PC_out), .NPCOp(EX_NPCOp),
-	          .IMM(EX_immout), .NPC(NPC));
+	PC U_PC(.clk(~clk), .rst(reset), .stall(stall), .NPC(NPC), .PC(PC_out) );
+	NPC U_NPC(.PC(EX_pc), .NPCOp(EX_NPCOp),
+	          .IMM(EX_immout), .aluout(aluout), .stall(stall), .NPC(NPC));
 	EXT U_EXT(
-		.iimm(iimm), .simm(simm), 
-		.uimm(uimm), .EXTOp(EXTOp), .immout(immout)
+		.iimm(iimm), .simm(simm), .bimm(bimm), .uimm(uimm), .jimm(jimm),
+		.EXTOp(EXTOp), .immout(immout)
 	);
 	RF U_RF(
 		.clk(clk), .rst(reset),
@@ -128,9 +134,13 @@ module PLCPU(
 		.RD1(RD1), .RD2(RD2)
 	);
 // instantiation of alu unit
-	alu U_alu(.A(A), .B(B), .ALUOp(EX_ALUOp), .C(aluout), .Zero(Zero));
-	
+	alu U_alu(.A(A), .B(B), .ALUOp(EX_ALUOp), .C(aluout), .Zero(Zero), .flush(flush));
+	always @(*)
+begin
+	$write("flush=%b", flush);
+end
 //please connnect the CPU by yourself
+
 
 //WD MUX
 always @(*)
@@ -147,13 +157,29 @@ end
     reg [31:0] alu_in2;  
 
     always @(*) 
-    begin
-        alu_in1 <= EX_RD1; //from regfile
-        alu_in2 <= EX_RD2; //from regfile
-    end
+begin
+    case(ForwardA)
+        2'b00: alu_in1 <= EX_RD1; // 正常情况，无需前递
+        2'b01: alu_in1 <= WD;     // MEM/WB -> EX
+        2'b10: alu_in1 <= MEM_aluout; // EX/MEM -> EX 通常为ALU结果
+        default: alu_in1 <= 32'b0;    // 默认值（可选）
+    endcase
+
+    case(ForwardB)
+        2'b00: alu_in2 <= EX_RD2; // 正常情况，无需前递
+        2'b01: alu_in2 <= WD;      // MEM/WB -> EX
+        2'b10: alu_in2 <= MEM_aluout; // EX/MEM -> EX 通常为ALU结果
+        default: alu_in2 <= 32'b0;    // 默认值（可选）
+    endcase
+    // $write("alu_in1:%h, alu_in2:%h; ForwardAB=%b %b ", alu_in1, alu_in2, ForwardA, ForwardB);
+end
     
-    always @(*) 
-        memdata_wr <= MEM_RD2;//from MEM
+    always @(*) begin
+        if (ForwardMEM)
+            memdata_wr <= WD;       // MEM/WB -> MEM
+        else
+            memdata_wr <= MEM_RD2;  // 正常来自EX/MEM中的store data
+    end
         
     assign A = alu_in1;
     assign B = (EX_ALUSrc) ? EX_immout : alu_in2;//whether from EXT
@@ -167,11 +193,19 @@ end
 
     wire [63:0] IF_ID_out;
     assign instr = IF_ID_out[63:32];
+    // always @(*) begin
+    //   $write("IF_ID_in:%h ", IF_ID_in);
+    //   $write("flush:%b ", flush);
+    // end
+    always @(*) begin
+      $write(" stall%b ", stall);
+    end
     pl_reg #(.WIDTH(64))
     IF_ID
-    (.clk(~clk), .rst(reset), 
+    (.clk(~clk), .rst(reset), .flush(flush), .stall(stall),
     .in(IF_ID_in), .out(IF_ID_out));
 
+    
 
     //ID_EX
     wire [193:0] ID_EX_in;
@@ -203,19 +237,25 @@ end
     assign EX_RegWrite = ID_EX_out[143];//RFWr
     assign EX_MemWrite = ID_EX_out[144];//DMWr
     assign EX_ALUOp = ID_EX_out[149:145];
-    assign EX_NPCOp = {ID_EX_out[154:151], ID_EX_out[150] & Zero};
+    assign EX_NPCOp = {ID_EX_out[154:151], ID_EX_out[150] & flush}; // flush而非Zero
     assign EX_ALUSrc = ID_EX_out[155];
     assign EX_DMType = ID_EX_out[158:156];
     assign EX_WDSel = ID_EX_out[160:159];
     assign EX_MemRead = ID_EX_out[161];
     assign EX_pc = ID_EX_out[31:0];
     //assign EX_inst = ID_EX_out[193:162];
-    
+    always @(*) begin
+      $write(" EX_ALUOp:%b, EX_NPCOp:%b, EX_ALUSrc:%b, EX_WDSel:%b, EX_pc:%h ", EX_ALUOp, EX_NPCOp, EX_ALUSrc, EX_WDSel, EX_pc);
+      $write(" aluout:%h", aluout);
+    end
+
     pl_reg #(.WIDTH(194))
     ID_EX
-    (.clk(~clk), .rst(reset), 
+    (.clk(~clk), .rst(reset), .flush(flush | stall),  .stall(stall),
     .in(ID_EX_in), .out(ID_EX_out));
-
+    // always @(*) begin
+    //   $write("ID_EX_out:%h", ID_EX_out);
+    // end
     
     //EX_MEM
     wire [145:0] EX_MEM_in;
@@ -245,7 +285,7 @@ end
  
     pl_reg #(.WIDTH(146))
     EX_MEM
-    (.clk(~clk), .rst(reset), 
+    (.clk(~clk), .rst(reset), .flush(1'b0), .stall(1'b0),
     .in(EX_MEM_in), .out(EX_MEM_out));
     
 
@@ -271,7 +311,30 @@ end
 
     pl_reg #(.WIDTH(136))
     MEM_WB
-    (.clk(~clk), .rst(reset), 
+    (.clk(~clk), .rst(reset), .flush(1'b0), .stall(1'b0),
     .in(MEM_WB_in), .out(MEM_WB_out));
+
+
+Hazard_Detect U_Hazard_Detect(
+    .IF_ID_rs1(rs1),
+    .IF_ID_rs2(rs2),
+    .ID_EX_rd(EX_rd),
+    .ID_EX_RegWrite(EX_RegWrite),
+    .ID_EX_MemRead(EX_MemRead),
+    .stall(stall)
+);
+
+Forwarding U_Forwarding(
+    .ID_EX_rs1(EX_rs1),
+    .ID_EX_rs2(EX_rs2),
+    .EX_MEM_rs2(MEM_rs2), 
+    .EX_MEM_rd(MEM_rd),
+    .MEM_WB_rd(WB_rd),
+    .EX_MEM_RegWrite(MEM_RegWrite),
+    .MEM_WB_RegWrite(WB_RegWrite),
+    .ForwardA(ForwardA),
+    .ForwardB(ForwardB),
+    .ForwardMEM(ForwardMEM)
+);
 
 endmodule
